@@ -18,9 +18,9 @@ type Config struct {
 var (
 	plugin = Config{
 		PluginConfig: sensu.PluginConfig{
-			Name:     "{{ .GithubProject }}",
-			Short:    "{{ .Description }}",
-			Keyspace: "sensu.io/plugins/{{ .GithubProject }}/config",
+			Name:     "haproxy-check",
+			Short:    "Check health and status of an HAProxy instance",
+			Keyspace: "sensu.io/plugins/haproxy-check/config",
 		},
 	}
 
