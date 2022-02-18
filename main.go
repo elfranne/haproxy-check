@@ -1,21 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/url"
 	"os"
 
-	"github.com/sensu-community/sensu-plugin-sdk/sensu"
 	corev2 "github.com/sensu/sensu-go/api/core/v2"
+	"github.com/sensu/sensu-plugin-sdk/sensu"
 )
 
 // Config represents the check plugin config.
 type Config struct {
 	sensu.PluginConfig
-	URL                string
-	Backends           []string
+	URLs               []string
 	AdminUser          string
 	AdminPass          string
 	TLSCA              string
@@ -35,22 +37,13 @@ var (
 
 	options = []*sensu.PluginConfigOption{
 		&sensu.PluginConfigOption{
-			Path:      "url",
-			Env:       "HAPROXY_URL",
-			Argument:  "url",
+			Path:      "urls",
+			Env:       "HAPROXY_URLS",
+			Argument:  "urls",
 			Shorthand: "u",
-			Default:   "unix:///run/haproxy/admin.sock",
-			Usage:     "URL to the HAProxy administration service",
-			Value:     &config.URL,
-		},
-		&sensu.PluginConfigOption{
-			Path:      "backends",
-			Env:       "HAPROXY_BACKENDS",
-			Argument:  "backends",
-			Shorthand: "b",
-			Default:   []string{},
-			Usage:     "list of backends to fetch stats from (fetch all by default)",
-			Value:     &config.Backends,
+			Default:   []string{"unix:///run/haproxy/admin.sock"},
+			Usage:     "URLs to query for HAProxy stats",
+			Value:     &config.URLs,
 		},
 		&sensu.PluginConfigOption{
 			Path:      "admin-user",
@@ -105,8 +98,7 @@ func main() {
 	useStdin := false
 	fi, err := os.Stdin.Stat()
 	if err != nil {
-		fmt.Printf("Error check stdin: %v\n", err)
-		panic(err)
+		log.Fatal(err)
 	}
 	//Check the Mode bitmask for Named Pipe to indicate stdin is connected
 	if fi.Mode()&os.ModeNamedPipe != 0 {
@@ -119,11 +111,19 @@ func main() {
 }
 
 func checkArgs(event *corev2.Event) (int, error) {
-	if len(config.URL) == 0 {
+	if len(config.URLs) == 0 {
 		return sensu.CheckStateWarning, fmt.Errorf("--url or HAPROXY_URL environment variable is required")
 	}
-	if _, err := url.Parse(config.URL); err != nil {
-		return sensu.CheckStateWarning, fmt.Errorf("invalid URL: %s", err)
+	for _, cfgURL := range config.URLs {
+		u, err := url.Parse(cfgURL)
+		if err != nil {
+			return sensu.CheckStateWarning, fmt.Errorf("invalid URL: %s", err)
+		}
+		switch u.Scheme {
+		case "", "file", "unix", "http", "https":
+		default:
+			return sensu.CheckStateWarning, fmt.Errorf("unsupported protocol scheme: %s", u.Scheme)
+		}
 	}
 	if err := checkTLS(config); err != nil {
 		return sensu.CheckStateWarning, fmt.Errorf("invalid TLS configuration: %s", err)
@@ -159,5 +159,54 @@ func checkTLS(config Config) error {
 }
 
 func executeCheck(event *corev2.Event) (int, error) {
+	for _, cfgURL := range config.URLs {
+		url, err := url.Parse(cfgURL)
+		if err != nil {
+			// shouldn't happen as inputs are validated elsewhere
+			return sensu.CheckStateWarning, err
+		}
+		if url.Scheme == "" || url.Scheme == "unix" || url.Scheme == "file" {
+			data, err := readUnix(url)
+			if err != nil {
+				return sensu.CheckStateWarning, err
+			}
+			outputMetrics(data)
+		} else if url.Scheme == "http" || url.Scheme == "https" {
+			data, err := readHTTP(url)
+			if err != nil {
+				return sensu.CheckStateWarning, err
+			}
+		} else {
+			return sensu.CheckStateWarning, fmt.Errorf("unsupported protocol scheme: %s", err)
+		}
+	}
 	return sensu.CheckStateWarning, errors.New("FAIL")
+}
+
+type statsData struct {
+	data []byte
+}
+
+func readUnix(url *url.URL) (*statsData, error) {
+	conn, err := net.Dial("unix", url.Path)
+	if err != nil {
+		return nil, fmt.Errorf("error dialing %s: %s", url.String(), err)
+	}
+	defer conn.Close()
+	if _, err := conn.Write([]byte("show stat\n")); err != nil {
+		return nil, fmt.Errorf("error querying %s: %s", url.String(), err)
+	}
+	var buf bytes.Buffer
+	if err := io.Copy(&buf, conn); err != nil {
+		return nil, fmt.Errorf("error reading %s: %s", url.String(), err)
+	}
+	return &statsData{data: buf.Bytes()}, nil
+}
+
+func readHTTP(url *url.URL) (*statsData, error) {
+	return nil, errors.New("not implemented")
+}
+
+func outputMetrics(data *statsData) error {
+	return errors.New("not implemented")
 }
