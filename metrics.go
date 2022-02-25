@@ -1,6 +1,6 @@
 package main
 
-import "errors"
+import "fmt"
 
 var metrics = []string{
 	"active_servers",
@@ -34,7 +34,37 @@ var metrics = []string{
 	"wretr",
 }
 
-var tags = []string{
+var nameLookup = map[string]string{
+	"proxy":               "pxname",
+	"sv":                  "svname",
+	"active_servers":      "act",
+	"backup_servers":      "bck",
+	"cli_abort":           "cli_abrt",
+	"srv_abort":           "srv_abrt",
+	"http_response.1xx":   "hrsp_1xx",
+	"http_response.2xx":   "hrsp_2xx",
+	"http_response.3xx":   "hrsp_3xx",
+	"http_response.4xx":   "hrsp_4xx",
+	"http_response.5xx":   "hrsp_5xx",
+	"http_response.other": "hrsp_other",
+}
+
+var instanceTypes = []string{
+	"frontend",
+	"backend",
+	"server",
+	"listener",
+}
+
+func lookupName(metric string) string {
+	val, ok := nameLookup[metric]
+	if ok {
+		return val
+	}
+	return metric
+}
+
+var tags = []interface{}{
 	"proxy_cluster",
 	"host",
 	"type",
@@ -44,6 +74,27 @@ var tags = []string{
 	"sv",
 }
 
+type Query struct {
+	Metric       string
+	ProxyCluster string
+	Type         string
+	Host         string
+	ProxySystem  string
+	Component    string
+	Proxy        string
+	Service      string
+}
+
+func (q Query) SQL() string {
+	return fmt.Sprintf(`SELECT %s, %s, %s, %s, %s, %s, %s, %s
+	FROM metrics;
+	`, append(tags, q.Metric)...)
+}
+
 func outputMetrics(data *statsData) error {
-	return errors.New("not implemented")
+	db, err := createDB(data)
+	if err != nil {
+		return err
+	}
+
 }
