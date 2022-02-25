@@ -1,14 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"crypto/x509"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
-	"net"
 	"net/url"
 	"os"
+	"regexp"
+	"strconv"
+
+	_ "modernc.org/sqlite"
 
 	corev2 "github.com/sensu/sensu-go/api/core/v2"
 	"github.com/sensu/sensu-plugin-sdk/sensu"
@@ -172,10 +177,11 @@ func executeCheck(event *corev2.Event) (int, error) {
 			}
 			outputMetrics(data)
 		} else if url.Scheme == "http" || url.Scheme == "https" {
-			data, err := readHTTP(url)
+			data, err := readHTTP(url, config)
 			if err != nil {
 				return sensu.CheckStateWarning, err
 			}
+			outputMetrics(data)
 		} else {
 			return sensu.CheckStateWarning, fmt.Errorf("unsupported protocol scheme: %s", err)
 		}
@@ -187,26 +193,86 @@ type statsData struct {
 	data []byte
 }
 
-func readUnix(url *url.URL) (*statsData, error) {
-	conn, err := net.Dial("unix", url.Path)
-	if err != nil {
-		return nil, fmt.Errorf("error dialing %s: %s", url.String(), err)
+var columnNameRE = regexp.MustCompile(`^[A-Za-z0-9_\-].*$`)
+
+func (s *statsData) ColumnNames() ([]string, error) {
+	index := bytes.IndexByte(s.data, '\n')
+	if index < 0 {
+		return nil, errors.New("invalid stats data")
 	}
-	defer conn.Close()
-	if _, err := conn.Write([]byte("show stat\n")); err != nil {
-		return nil, fmt.Errorf("error querying %s: %s", url.String(), err)
+	header := s.data[:index]
+	header = bytes.TrimPrefix(header, []byte("# "))
+	sep := []byte{','}
+	columns := bytes.Split(bytes.TrimSuffix(header, sep), sep)
+	result := make([]string, 0, len(columns))
+	for _, column := range columns {
+		if !columnNameRE.Match(column) {
+			return nil, fmt.Errorf("illegal column name: %q", string(column))
+		}
+		if bytes.Equal(column, []byte("-")) {
+			// who names a column this!?
+			column = []byte("dash")
+		}
+		result = append(result, string(column))
 	}
-	var buf bytes.Buffer
-	if err := io.Copy(&buf, conn); err != nil {
-		return nil, fmt.Errorf("error reading %s: %s", url.String(), err)
-	}
-	return &statsData{data: buf.Bytes()}, nil
+	return result, nil
 }
 
-func readHTTP(url *url.URL) (*statsData, error) {
-	return nil, errors.New("not implemented")
+func cast(data string) interface{} {
+	if len(data) == 0 {
+		return nil
+	}
+	ival, err := strconv.Atoi(data)
+	if err == nil {
+		return ival
+	}
+	fval, err := strconv.ParseFloat(data, 64)
+	if err == nil {
+		return fval
+	}
+	return data
+}
+
+func (s *statsData) Rows() ([][]interface{}, error) {
+	index := bytes.IndexByte(s.data, '\n')
+	if index < 0 {
+		return nil, errors.New("invalid stats data")
+	}
+	if index == len(s.data)-1 {
+		return nil, errors.New("no stats data found")
+	}
+	data := s.data[index+1:]
+	result := [][]interface{}{}
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		sep := []byte{','}
+		split := bytes.Split(line, sep)
+		row := make([]interface{}, 0, len(split))
+		for _, elem := range split {
+			row = append(row, cast(string(elem)))
+		}
+		result = append(result, row)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func outputMetrics(data *statsData) error {
 	return errors.New("not implemented")
+}
+
+func loadCACerts(path string) (*x509.CertPool, error) {
+	caCerts, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading CA file: %s", err)
+	}
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCerts) {
+		return nil, fmt.Errorf("No certificates could be parsed out of %s", path)
+	}
+
+	return caCertPool, nil
 }
