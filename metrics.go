@@ -1,5 +1,7 @@
 package main
 
+import "errors"
+
 var metrics = []string{
 	"active_servers",
 	"backup_servers",
@@ -40,4 +42,8 @@ var tags = []string{
 	"component",
 	"proxy",
 	"sv",
+}
+
+func outputMetrics(data *statsData) error {
+	return errors.New("not implemented")
 }

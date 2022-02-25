@@ -260,10 +260,6 @@ func (s *statsData) Rows() ([][]interface{}, error) {
 	return result, nil
 }
 
-func outputMetrics(data *statsData) error {
-	return errors.New("not implemented")
-}
-
 func loadCACerts(path string) (*x509.CertPool, error) {
 	caCerts, err := ioutil.ReadFile(path)
 	if err != nil {
