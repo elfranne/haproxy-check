@@ -175,18 +175,22 @@ func executeCheck(event *corev2.Event) (int, error) {
 			if err != nil {
 				return sensu.CheckStateWarning, err
 			}
-			outputMetrics(data)
+			if err := outputMetrics(data); err != nil {
+				return sensu.CheckStateWarning, err
+			}
 		} else if url.Scheme == "http" || url.Scheme == "https" {
 			data, err := readHTTP(url, config)
 			if err != nil {
 				return sensu.CheckStateWarning, err
 			}
-			outputMetrics(data)
+			if err := outputMetrics(data); err != nil {
+				return sensu.CheckStateWarning, err
+			}
 		} else {
 			return sensu.CheckStateWarning, fmt.Errorf("unsupported protocol scheme: %s", err)
 		}
 	}
-	return sensu.CheckStateWarning, errors.New("FAIL")
+	return sensu.CheckStateOK, nil
 }
 
 type statsData struct {
