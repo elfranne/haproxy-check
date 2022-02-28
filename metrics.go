@@ -13,7 +13,8 @@ func init() {
 	for _, v := range prometheusMetrics {
 		prometheus.MustRegister(v)
 	}
-	// unregister go collector
+	// unregister the default collectors. We could also create a new registry,
+	// but this was actually easier to figure out how to do.
 	prometheus.Unregister(prometheus.NewGoCollector())
 	prometheus.Unregister(prometheus.NewBuildInfoCollector())
 	prometheus.Unregister(prometheus.NewExpvarCollector(nil))
@@ -67,6 +68,13 @@ var nameLookup = map[string]string{
 	"http_response_other": "hrsp_other",
 }
 
+func lookupHelp(key string) string {
+	if k, ok := nameLookup[key]; ok {
+		key = k
+	}
+	return helpLookup[key]
+}
+
 var reverseNameLookup = map[string]string{
 	"pxname":     "proxy",
 	"svname":     "sv",
@@ -82,122 +90,208 @@ var reverseNameLookup = map[string]string{
 	"hrsp_other": "http_response_other",
 }
 
+var helpLookup = map[string]string{
+	"pxname":         "proxy name",
+	"svname":         "service name",
+	"qcur":           "current queued requests",
+	"qmax":           "max queued requests",
+	"scur":           "session current",
+	"smax":           "session max",
+	"slim":           "session limit",
+	"stot":           "session total",
+	"bin":            "bytes in",
+	"bout":           "bytes out",
+	"dreq":           "request denied security",
+	"dresp":          "response denied security",
+	"ereq":           "request errors",
+	"econ":           "connection errors",
+	"eresp":          "response errors",
+	"wretr":          "warning retries",
+	"wredis":         "warning redispatched",
+	"status":         "status",
+	"weight":         "weight",
+	"act":            "servers active",
+	"bck":            "servers backup",
+	"chkfail":        "healthcheck failed",
+	"chkdown":        "healthcheck transitions",
+	"lastchg":        "healthcheck seconds since change",
+	"downtime":       "healthcheck downtime",
+	"qlimit":         "server queue limit",
+	"pid":            "process id",
+	"iid":            "proxy id",
+	"sid":            "server id",
+	"throttle":       "server throttle percent",
+	"lbtot":          "server selected",
+	"tracked":        "tracked server id",
+	"type":           "type",
+	"rate":           "session rate",
+	"rate_lim":       "session rate limit",
+	"rate_max":       "session rate max",
+	"check_status":   "check status",
+	"check_code":     "check code",
+	"check_duration": "healthcheck duration",
+	"hrsp_1xx":       "response status 1xx",
+	"hrsp_2xx":       "response status 2xx",
+	"hrsp_3xx":       "response status 3xx",
+	"hrsp_4xx":       "response status 4xx",
+	"hrsp_5xx":       "response status 5xx",
+	"hrsp_other":     "response status other",
+	"hanafail":       "failed healthcheck details",
+	"req_rate":       "requests per second",
+	"req_rate_max":   "requests per second max",
+	"req_tot":        "total requests",
+	"cli_abrt":       "client transfer aborts",
+	"srv_abrt":       "server transfer aborts",
+	"comp_in":        "compressor in",
+	"comp_out":       "compressor out",
+	"comp_byp":       "compressor bytes",
+	"comp_rsp":       "compressor responses",
+	"lastsess":       "session last assigned seconds",
+	"last_chk":       "healthcheck contents",
+	"last_agt":       "agent check contents",
+	"qtime":          "queue time",
+	"ctime":          "connect time",
+	"rtime":          "response time",
+	"ttime":          "average time",
+	"agent_status":   "agent status",
+	"agent_code":     "agent code",
+	"agent_duration": "agent duration",
+	"check_desc":     "check description",
+	"agent_desc":     "agent description",
+	"check_rise":     "check rise",
+	"check_fall":     "check fall",
+	"check_health":   "check health",
+	"agent_rise":     "agent rise",
+	"agent_fall":     "agent fall",
+	"agent_health":   "agent health",
+	"addr":           "address",
+	"cookie":         "cookie",
+	"mode":           "mode",
+	"algo":           "algorithm",
+	"conn_rate":      "connection rate",
+	"conn_rate_max":  "connection rate max",
+	"conn_tot":       "connection tot",
+	"intercepted":    "requests intercepted",
+	"dcon":           "connection requests denied",
+	"dses":           "session requests denied",
+}
+
 var prometheusMetrics = map[string]*prometheus.GaugeVec{
 	"active_servers": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_active_servers",
-		Help: "?",
+		Help: lookupHelp("active_servers"),
 	}, tags),
 	"backup_servers": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_backup_servers",
-		Help: "?",
+		Help: lookupHelp("backup_servers"),
 	}, tags),
 	"bin": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_bin",
-		Help: "?",
+		Help: lookupHelp("bin"),
 	}, tags),
 	"bout": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_bout",
-		Help: "?",
+		Help: lookupHelp("bout"),
 	}, tags),
 	"chkfail": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_chkfail",
-		Help: "?",
+		Help: lookupHelp("chkfail"),
 	}, tags),
 	"ctime": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_ctime",
-		Help: "?",
+		Help: lookupHelp("ctime"),
 	}, tags),
 	"dreq": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_dreq",
-		Help: "?",
+		Help: lookupHelp("dreq"),
 	}, tags),
 	"dresp": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_dresp",
-		Help: "?",
+		Help: lookupHelp("dresp"),
 	}, tags),
 	"econ": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_econ",
-		Help: "?",
+		Help: lookupHelp("econ"),
 	}, tags),
 	"ereq": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_ereq",
-		Help: "?",
+		Help: lookupHelp("ereq"),
 	}, tags),
 	"eresp": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_eresp",
-		Help: "?",
+		Help: lookupHelp("eresp"),
 	}, tags),
 	"http_response_1xx": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_http_response_1xx",
-		Help: "?",
+		Help: lookupHelp("http_response_1xx"),
 	}, tags),
 	"http_response_2xx": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_http_response_2xx",
-		Help: "?",
+		Help: lookupHelp("http_response_2xx"),
 	}, tags),
 	"http_response_3xx": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_http_response_3xx",
-		Help: "?",
+		Help: lookupHelp("http_response_3xx"),
 	}, tags),
 	"http_response_4xx": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_http_response_4xx",
-		Help: "?",
+		Help: lookupHelp("http_response_4xx"),
 	}, tags),
 	"http_response_5xx": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_http_response_5xx",
-		Help: "?",
+		Help: lookupHelp("http_response_5xx"),
 	}, tags),
 	"http_response_other": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_http_response_other",
-		Help: "?",
+		Help: lookupHelp("http_response_other"),
 	}, tags),
 	"qcur": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_qcur",
-		Help: "?",
+		Help: lookupHelp("qcur"),
 	}, tags),
 	"qmax": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_qmax",
-		Help: "?",
+		Help: lookupHelp("qmax"),
 	}, tags),
 	"qtime": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_qtime",
-		Help: "?",
+		Help: lookupHelp("qtime"),
 	}, tags),
 	"rate": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_rate",
-		Help: "?",
+		Help: lookupHelp("rate"),
 	}, tags),
 	"rtime": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_rtime",
-		Help: "?",
+		Help: lookupHelp("rtime"),
 	}, tags),
 	"scur": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_scur",
-		Help: "?",
+		Help: lookupHelp("scur"),
 	}, tags),
 	"slim": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_slim",
-		Help: "?",
+		Help: lookupHelp("slim"),
 	}, tags),
 	"smax": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_smax",
-		Help: "?",
+		Help: lookupHelp("smax"),
 	}, tags),
 	"ttime": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_ttime",
-		Help: "?",
+		Help: lookupHelp("ttime"),
 	}, tags),
 	"weight": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_weight",
-		Help: "?",
+		Help: lookupHelp("weight"),
 	}, tags),
 	"wredis": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_wredis",
-		Help: "?",
+		Help: lookupHelp("wredis"),
 	}, tags),
 	"wretr": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "haproxy_wretr",
-		Help: "?",
+		Help: lookupHelp("wretr"),
 	}, tags),
 }
 
@@ -216,6 +310,7 @@ func lookupName(metric string) string {
 	return metric
 }
 
+// do not modify this without also modifying tags
 var itags = []interface{}{
 	"pxname",
 	"addr",
@@ -225,6 +320,7 @@ var itags = []interface{}{
 	"svname",
 }
 
+// do not modify this without also modifying itags
 var tags = []string{
 	"proxy",
 	"host",
@@ -259,12 +355,6 @@ func (r *Row) ScanArgs() []interface{} {
 	}
 }
 
-var types = map[int64]string{
-	0: "frontend",
-	1: "backend",
-	2: "server",
-}
-
 func (r Row) SetPrometheus() {
 	if !r.Metric.Valid {
 		return
@@ -277,9 +367,11 @@ func (r Row) SetPrometheus() {
 	if !ok {
 		panic(fmt.Sprintf("can't find metric name: %s", r.MetricName))
 	}
-	hapType := types[r.Type.Int64]
+	var hapType string
 	if !r.Type.Valid {
 		hapType = ""
+	} else if r.Type.Int64 < int64(len(instanceTypes)) {
+		hapType = instanceTypes[r.Type.Int64]
 	}
 	gauge.WithLabelValues(r.Proxy, r.Host.String, hapType, r.Service).Set(r.Metric.Float64)
 }

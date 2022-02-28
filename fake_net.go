@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -15,7 +16,7 @@ var (
 )
 
 func init() {
-	go http.Serve(netListener, promhttp.Handler())
+	go http.Serve(netListener, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{}))
 }
 
 type FakeListener struct {
