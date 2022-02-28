@@ -9,7 +9,9 @@ This is a Sensu check that checks the health and status of an HAProxy instance.
 
 ## Functionality
 
-TODO
+The haproxy-check reads HAProxy stats CSV data from either unix socket or HTTP
+endpoint, parses it, and transforms the data into prometheus metrics which are
+output on stdout.
 
 ## Releases with Github Actions
 
