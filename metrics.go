@@ -342,6 +342,8 @@ type Row struct {
 	Metric       sql.NullFloat64
 }
 
+// ScanArgs returns the arguments which are passed positionally to rows.Scan.
+// If you want to add support for a new tag, this list must be added to.
 func (r *Row) ScanArgs() []interface{} {
 	return []interface{}{
 		&r.Proxy,
@@ -355,6 +357,7 @@ func (r *Row) ScanArgs() []interface{} {
 	}
 }
 
+// SetPrometheus writes the contents of the row to the prometheus gatherer.
 func (r Row) SetPrometheus() {
 	if !r.Metric.Valid {
 		return
@@ -376,6 +379,8 @@ func (r Row) SetPrometheus() {
 	gauge.WithLabelValues(r.Proxy, r.Host.String, hapType, r.Service).Set(r.Metric.Float64)
 }
 
+// outputMetrics writes all the scraped CSV metrics to prometheus, and then
+// scrapes prometheus to produce the final output.
 func outputMetrics(data *statsData) error {
 	db, err := createDB(data)
 	if err != nil {

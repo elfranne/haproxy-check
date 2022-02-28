@@ -9,7 +9,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-/* Start up a prometheus listener but don't expose it to anything */
+// The purpose of this code is to bind a prometheus HTTP handler to a net.Listener
+// that doesn't actually open any sockets or files. That lets us re-use the prom
+// HTTP logic to scrape the metrics without needing any system permissions to
+// open ports or files.
 
 var (
 	netListener = NewFakeListener()
