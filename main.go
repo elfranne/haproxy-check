@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/x509"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -200,26 +200,26 @@ type statsData struct {
 var columnNameRE = regexp.MustCompile(`^[A-Za-z0-9_\-].*$`)
 
 func (s *statsData) ColumnNames() ([]string, error) {
-	index := bytes.IndexByte(s.data, '\n')
-	if index < 0 {
-		return nil, errors.New("invalid stats data")
+	reader := csv.NewReader(bytes.NewReader(bytes.TrimPrefix(s.data, []byte("#"))))
+	reader.TrimLeadingSpace = true
+	columns, err := reader.Read()
+	if err != nil {
+		return nil, err
 	}
-	header := s.data[:index]
-	header = bytes.TrimPrefix(header, []byte("# "))
-	sep := []byte{','}
-	columns := bytes.Split(bytes.TrimSuffix(header, sep), sep)
-	result := make([]string, 0, len(columns))
-	for _, column := range columns {
-		if !columnNameRE.Match(column) {
-			return nil, fmt.Errorf("illegal column name: %q", string(column))
-		}
-		if bytes.Equal(column, []byte("-")) {
+	for i := range columns {
+		if columns[i] == "-" {
 			// who names a column this!?
-			column = []byte("dash")
+			columns[i] = "dash"
 		}
-		result = append(result, string(column))
+		if columns[i] == "" && i == len(columns)-1 {
+			columns = columns[:len(columns)-1]
+			break
+		}
+		if !columnNameRE.MatchString(columns[i]) {
+			return nil, fmt.Errorf("illegal column name: %q", columns[i])
+		}
 	}
-	return result, nil
+	return columns, nil
 }
 
 func cast(data string) interface{} {
@@ -238,29 +238,33 @@ func cast(data string) interface{} {
 }
 
 func (s *statsData) Rows() ([][]interface{}, error) {
-	index := bytes.IndexByte(s.data, '\n')
-	if index < 0 {
-		return nil, errors.New("invalid stats data")
-	}
-	if index == len(s.data)-1 {
-		return nil, errors.New("no stats data found")
-	}
-	data := s.data[index+1:]
-	result := [][]interface{}{}
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		sep := []byte{','}
-		split := bytes.Split(line, sep)
-		row := make([]interface{}, 0, len(split))
-		for _, elem := range split {
-			row = append(row, cast(string(elem)))
-		}
-		result = append(result, row)
-	}
-	if err := scanner.Err(); err != nil {
+	columns, err := s.ColumnNames()
+	if err != nil {
 		return nil, err
 	}
+
+	lenCols := len(columns)
+
+	reader := csv.NewReader(bytes.NewReader(s.data))
+	reader.Comment = '#'
+	reader.TrimLeadingSpace = true
+	rows, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([][]interface{}, 0, len(rows))
+	for _, row := range rows {
+		irow := make([]interface{}, 0, len(row))
+		for i, elem := range row {
+			if i >= lenCols {
+				break
+			}
+			irow = append(irow, cast(string(elem)))
+		}
+		result = append(result, irow)
+	}
+
 	return result, nil
 }
 
