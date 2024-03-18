@@ -6,7 +6,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -15,7 +14,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	corev2 "github.com/sensu/sensu-go/api/core/v2"
+	corev2 "github.com/sensu/core/v2"
 	"github.com/sensu/sensu-plugin-sdk/sensu"
 )
 
@@ -40,8 +39,8 @@ var (
 		},
 	}
 
-	options = []*sensu.PluginConfigOption{
-		&sensu.PluginConfigOption{
+	options = []sensu.ConfigOption{
+		&sensu.SlicePluginConfigOption[string]{
 			Path:      "urls",
 			Env:       "HAPROXY_URLS",
 			Argument:  "urls",
@@ -50,7 +49,7 @@ var (
 			Usage:     "URLs to query for HAProxy stats",
 			Value:     &config.URLs,
 		},
-		&sensu.PluginConfigOption{
+		&sensu.PluginConfigOption[string]{
 			Path:      "admin-user",
 			Env:       "HAPROXY_ADMIN_USER",
 			Argument:  "admin-user",
@@ -59,7 +58,7 @@ var (
 			Usage:     "admin username to be supplied for basic auth, optional",
 			Value:     &config.AdminUser,
 		},
-		&sensu.PluginConfigOption{
+		&sensu.PluginConfigOption[string]{
 			Path:      "admin-pass",
 			Env:       "HAPROXY_ADMIN_PASS",
 			Argument:  "admin-pass",
@@ -68,28 +67,28 @@ var (
 			Usage:     "admin password to be supplied for basic auth, optional",
 			Value:     &config.AdminPass,
 		},
-		&sensu.PluginConfigOption{
+		&sensu.PluginConfigOption[string]{
 			Path:     "tls-ca",
 			Env:      "HAPROXY_TLS_CA",
 			Argument: "tls-ca",
 			Usage:    "TLS CA cert path, optional",
 			Value:    &config.TLSCA,
 		},
-		&sensu.PluginConfigOption{
+		&sensu.PluginConfigOption[string]{
 			Path:     "tls-cert",
 			Env:      "HAPROXY_TLS_CERT",
 			Argument: "tls-cert",
 			Usage:    "TLS cert path, optional",
 			Value:    &config.TLSCert,
 		},
-		&sensu.PluginConfigOption{
+		&sensu.PluginConfigOption[string]{
 			Path:     "tls-key",
 			Env:      "HAPROXY_TLS_KEY",
 			Argument: "tls-key",
 			Usage:    "TLS private key path, optional",
 			Value:    &config.TLSKey,
 		},
-		&sensu.PluginConfigOption{
+		&sensu.PluginConfigOption[bool]{
 			Path:     "insecure-skip-verify",
 			Env:      "HAPROXY_INSECURE_SKIP_VERIFY",
 			Argument: "insecure-skip-verify",
@@ -269,13 +268,13 @@ func (s *statsData) Rows() ([][]interface{}, error) {
 }
 
 func loadCACerts(path string) (*x509.CertPool, error) {
-	caCerts, err := ioutil.ReadFile(path)
+	caCerts, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading CA file: %s", err)
+		return nil, fmt.Errorf("error reading CA file: %s", err)
 	}
 	caCertPool := x509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCerts) {
-		return nil, fmt.Errorf("No certificates could be parsed out of %s", path)
+		return nil, fmt.Errorf("no certificates could be parsed out of %s", path)
 	}
 
 	return caCertPool, nil

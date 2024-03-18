@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	
 )
 
 func init() {
@@ -15,10 +17,10 @@ func init() {
 	}
 	// unregister the default collectors. We could also create a new registry,
 	// but this was actually easier to figure out how to do.
-	prometheus.Unregister(prometheus.NewGoCollector())
-	prometheus.Unregister(prometheus.NewBuildInfoCollector())
-	prometheus.Unregister(prometheus.NewExpvarCollector(nil))
-	prometheus.Unregister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	prometheus.Unregister(collectors.NewGoCollector())
+	prometheus.Unregister(collectors.NewBuildInfoCollector())
+	prometheus.Unregister(collectors.NewExpvarCollector(nil))
+	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 }
 
 var metrics = []string{
